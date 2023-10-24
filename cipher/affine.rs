@@ -1,27 +1,20 @@
 /**
- * An affine cipher is a letter substitution cipher that uses a linear transformation to substitute
- * letters in a message.
- * Given an alphabet of length M with characters with numeric values 0-(M-1), an arbitrary character x can be transformed
- * with the expression (ax + b) % M into our ciphertext character. The only caveat is that a must be
- * relatively prime with M in order for this transformation to be invertible, i.e., gcd(a, M) = 1.
+ * An affine cipher is a letter substitution cipher that uses a linear 
+ * transformation to substitute letters in a message.
+ * Given an alphabet of length M with characters with numeric values 0-(M-1), 
+ * an arbitrary character x can be transformed with the expression (ax + b) % M 
+ * into our ciphertext character. The only caveat is that a must be relatively 
+ * prime with M in order for this transformation to be invertible, i.e., 
+ * gcd(a, M) = 1.
  */
 
-/**
- * Number of characters in our alphabet (26 English alphabet letters)
- */
 const ALPHABET_SIZE: i32 = 26;
 
-/**
- * A structure representing an affine cipher key
- */
 struct AffineKey {
     a: i32,  // what the character is being multiplied by
     b: i32,  // what is being added after the multiplication with `a`
 }
 
-/**
- * Encrypts character string `s` with key
- */
 fn affine_encrypt(s: &mut String, key: &AffineKey) {
     let m = ALPHABET_SIZE as i32;
     let encrypted = s.chars().map(|c| {
@@ -41,9 +34,6 @@ fn affine_encrypt(s: &mut String, key: &AffineKey) {
     *s = encrypted.collect();
 }
 
-/**
- * Decrypts an affine ciphertext
- */
 fn affine_decrypt(s: &mut String, key: &AffineKey) {
     let m = ALPHABET_SIZE as i32;
     let a_inverse = mod_inverse(key.a, m);
@@ -67,9 +57,6 @@ fn affine_decrypt(s: &mut String, key: &AffineKey) {
     *s = decrypted.collect();
 }
 
-/**
- * Calculate the modular inverse of a number `a` modulo `m`
- */
 fn mod_inverse(a: i32, m: i32) -> i32 {
     for x in 1..m {
         if (a * x) % m == 1 {
@@ -79,9 +66,6 @@ fn mod_inverse(a: i32, m: i32) -> i32 {
     1 // Default to 1 if no modular inverse exists
 }
 
-/**
- * Test multiple strings
- */
 fn tests() {
     test_string("Hello!", "Inkkf!", 7, 11);
     test_string("TheAlgorithms/C", "OqxPybrkfoqnz/T", 67, 67);
