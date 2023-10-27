@@ -1,96 +1,104 @@
-/**
- * An affine cipher is a letter substitution cipher that uses a linear 
- * transformation to substitute letters in a message.
- * Given an alphabet of length M with characters with numeric values 0-(M-1), 
- * an arbitrary character x can be transformed with the expression (ax + b) % M 
- * into our ciphertext character. The only caveat is that a must be relatively 
- * prime with M in order for this transformation to be invertible, i.e., 
- * gcd(a, M) = 1.
- */
+const ALPHABET_SIZE: u8 = 95;
+const Z95_CONVERSION_CONSTANT: u8 = 32;
 
-const ALPHABET_SIZE: i32 = 26;
+fn modular_inverse(a: i32, m: i32) -> Result<i32, &'static str> {
+    let mut x0 = 1;
+    let mut x1 = 0;
+    let mut original_m = m;
 
-struct AffineKey {
-    a: i32,  // what the character is being multiplied by
-    b: i32,  // what is being added after the multiplication with `a`
-}
+    let mut a = a;
+    let mut m = m;
 
-fn affine_encrypt(s: &mut String, key: &AffineKey) {
-    let m = ALPHABET_SIZE as i32;
-    let encrypted = s.chars().map(|c| {
-        if c.is_ascii_alphabetic() {
-            let x = if c.is_ascii_lowercase() {
-                c as i32 - 'a' as i32
-            } else {
-                c as i32 - 'A' as i32
-            };
-            let encrypted_char = (key.a * x + key.b) % m;
-            let base = if c.is_ascii_lowercase() { 'a' } else { 'A' } as i32;
-            (encrypted_char + base) as u8 as char
-        } else {
-            c
-        }
-    });
-    *s = encrypted.collect();
-}
+    while m != 0 {
+        let q = a / m;
+        let r = a % m;
+        let next_x = x0 - q * x1;
 
-fn affine_decrypt(s: &mut String, key: &AffineKey) {
-    let m = ALPHABET_SIZE as i32;
-    let a_inverse = mod_inverse(key.a, m);
-    let decrypted = s.chars().map(|c| {
-        if c.is_ascii_alphabetic() {
-            let x = if c.is_ascii_lowercase() {
-                c as i32 - 'a' as i32
-            } else {
-                c as i32 - 'A' as i32
-            };
-            let mut decrypted_char = a_inverse * (x - key.b) % m;
-            if decrypted_char < 0 {
-                decrypted_char += m; // Ensure the result is non-negative
-            }
-            let base = if c.is_ascii_lowercase() { 'a' } else { 'A' } as i32;
-            (decrypted_char + base) as u8 as char
-        } else {
-            c
-        }
-    });
-    *s = decrypted.collect();
-}
-
-fn mod_inverse(a: i32, m: i32) -> i32 {
-    for x in 1..m {
-        if (a * x) % m == 1 {
-            return x;
-        }
+        a = m;
+        m = r;
+        x0 = x1;
+        x1 = next_x;
     }
-    1 // Default to 1 if no modular inverse exists
+
+    if a > 1 {
+        return Err("Inverse does not exist");
+    }
+
+    if x0 < 0 {
+        x0 += original_m;
+    }
+
+    Ok(x0)
 }
 
-fn tests() {
-    test_string("Hello!", "Inkkf!", 7, 11);
-    test_string("TheAlgorithms/C", "OqxPybrkfoqnz/T", 67, 67);
-    test_string("0123456789", "0123456789", 91, 88);
-    test_string("7W@;cdeRT9uL", "7C@;wvuHF9eN", 77, 76);
-    test_string(
-        "One-1, Two-2, Three-3, Four-4, Five-5, Six-6, Seven-7, Eight-8, Nine-9, Ten-10",
-        "One-1, Two-2, Three-3, Four-4, Five-5, Six-6, Seven-7, Eight-8, Nine-9, Ten-10",
-        1, 0,
-    );
+struct AffineCipher {
+    a: i32,
+    b: i32,
+}
+
+impl AffineCipher {
+    fn new(a: i32, b: i32) -> AffineCipher {
+        AffineCipher { a, b }
+    }
+
+    fn encrypt(&self, plaintext: &str) -> String {
+        let mut ciphertext = String::new();
+        for c in plaintext.chars() {
+            let char_code = c as i32 - Z95_CONVERSION_CONSTANT as i32;
+            let char_code = ((char_code * self.a) + self.b) % ALPHABET_SIZE as i32;
+            ciphertext.push((char_code + Z95_CONVERSION_CONSTANT as i32) as u8 as char);
+        }
+        ciphertext
+    }
+
+    fn decrypt(&self, ciphertext: &str) -> Result<String, &'static str> {
+        let a_inverse = modular_inverse(self.a, ALPHABET_SIZE as i32)?;
+        let b_inverse = -(self.b % ALPHABET_SIZE as i32) + ALPHABET_SIZE as i32;
+        let mut plaintext = String::new();
+
+        for c in ciphertext.chars() {
+            let char_code = c as i32 - Z95_CONVERSION_CONSTANT as i32;
+            let char_code = (a_inverse * (char_code + b_inverse)) % ALPHABET_SIZE as i32;
+            plaintext.push((char_code + Z95_CONVERSION_CONSTANT as i32) as u8 as char);
+        }
+
+        Ok(plaintext)
+    }
+}
+
+fn test_affine() {
+    let test_cases = vec![
+        ("Hello!", "&3ddy2", 7, 11),
+        ("TheAlgorithms/C", "DNC}=jHS2zN!7;E", 67, 67),
+        ("0123456789", "840,($ {ws", 91, 88),
+        ("7W@;cdeRT9uL", "JDfa*we?z&bL", 77, 76),
+        ("~Qr%^-+++$leM", "r'qC0$sss;Ahf", 8, 90),
+        (
+            "The quick brown fox jumps over the lazy dog",
+            "K7: .*6<4 =-0(1 90' 5*2/, 0):- +7: 3>%& ;08",
+            94,
+            0,
+        ),
+        (
+            "One-1, Two-2, Three-3, Four-4, Five-5, Six-6, Seven-7, Eight-8, Nine-9, Ten-10",
+            "H&60>\\2*uY0q\\2*p4660E\\2XYn40x\\2XDB60L\\2VDI0 \\2V6B6&0S\\2%D=p;0'\\2tD&60Z\\2*6&0>j",
+            51,
+            18,
+        ),
+    ];
+
+    for (plaintext, expected_ciphertext, a, b) in test_cases {
+        let cipher = AffineCipher::new(a, b);
+        let ciphertext = cipher.encrypt(plaintext);
+        assert_eq!(ciphertext, expected_ciphertext);
+
+        let decrypted_plaintext = cipher.decrypt(&ciphertext);
+        assert_eq!(decrypted_plaintext, Ok(plaintext.to_string()));
+    }
 
     println!("All tests have successfully passed!");
 }
 
-fn test_string(s: &str, ciphertext: &str, a: i32, b: i32) {
-    let mut copy = s.to_string();
-    let key = AffineKey { a, b };
-
-    affine_encrypt(&mut copy, &key);
-    assert_eq!(copy, ciphertext);  // assert that the encryption worked
-
-    affine_decrypt(&mut copy, &key);
-    assert_eq!(copy, s);  // assert that we got the same string we started with
-}
-
 fn main() {
-    tests();
+    test_affine();
 }
